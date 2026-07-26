@@ -1,4 +1,4 @@
-# introspecrMCP
+# introspectMCP
 
 Reflects over a compiled .NET assembly (`filename.dll`), finds every public
 static method on a `*Util`-suffixed class, and exposes each one as an MCP
