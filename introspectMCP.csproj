@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+		<PropertyGroup>
+				<OutputType>Exe</OutputType>
+				<UseWindowsForms>true</UseWindowsForms>
+				<TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+				<UseWindowsForms>true</UseWindowsForms>
+				<Nullable>enable</Nullable>
+		</PropertyGroup>
+
+		<ItemGroup>
+				<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+				<PackageReference Include="ModelContextProtocol" Version="1.4.1" />
+		</ItemGroup>
+
+</Project>
