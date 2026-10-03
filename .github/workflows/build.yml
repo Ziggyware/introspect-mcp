@@ -1,0 +1,48 @@
+name: .NET 8 Windows-target build
+
+# Manual to avoid automatic large toolchain exports in restricted environments.
+# This is the ORIGINAL target check, not the .NET 10 source-build fallback.
+on:
+  workflow_dispatch:
+    inputs:
+      export_offline_toolchain:
+        description: Export Linux SDK and restored NuGet packages for offline use
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOTNET_INSTALL_DIR: /tmp/introspect-dotnet-sdk
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build original Windows-targeted service
+        run: dotnet build introspectMCP.csproj --configuration Release -p:EnableWindowsTargeting=true
+      - name: Run portable .NET 8 integration tests
+        run: dotnet run --project tests/IntegrationTests/IntegrationTests.csproj --configuration Release -p:PortableBuild=true
+      - name: Bundle offline SDK and restored packages
+        if: ${{ always() && inputs.export_offline_toolchain }}
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/offline"
+          tar -czf "$RUNNER_TEMP/offline/dotnet-linux-x64.tar.gz" -C "$DOTNET_INSTALL_DIR" .
+          if [ -d "$HOME/.nuget/packages" ]; then
+            tar -czf "$RUNNER_TEMP/offline/nuget-packages.tar.gz" -C "$HOME/.nuget/packages" .
+          fi
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && inputs.export_offline_toolchain }}
+        with:
+          name: offline-dotnet-linux-x64
+          path: ${{ runner.temp }}/offline/*.tar.gz
+          retention-days: 3
+          compression-level: 0

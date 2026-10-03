@@ -6,11 +6,53 @@ tool over stdio — without hand-writing a wrapper per method. Built as a
 `net8.0-windows10.0.26100.0` console app that hosts
 `ModelContextProtocol.Server`.
 
+If SDK/NuGet downloads are unavailable in a Linux development environment, see
+[the verified, NuGet-free source-build fallback](docs/build-without-nuget.md).
+It builds the repository sources on .NET 10 without retargeting the shipping
+project; it does **not** replace verification of the .NET 8/Windows target.
+
 ```
 filename.dll  --reflect-->  MethodInfo[]  --adapt/filter-->  McpServerTool[]  --stdio-->  MCP client
 ```
 
-## Why this exists
+## Extended mode — complex inputs and live composition
+
+Keep the original behavior by default, or opt in:
+
+```sh
+dotnet introspectMCP.dll /absolute/path/Library.dll --extended
+```
+
+Extended mode discovers public methods **and constructors** beyond `*Util` types
+and makes live CLR objects usable across calls:
+
+- Recursive DTO/collection binding, polymorphic `$type` inputs, generic methods,
+  delegates, async results, ref/out and injected cancellation/progress/loggers.
+- Session-scoped **handles** with explicit targets, member projection, TTL/LRU,
+  serialized same-handle calls and disposal-aware cleanup.
+- **Pipelines** that pass live objects—not reconstructed JSON—with invocation-free
+  dry runs and partial failure results.
+- Guided discovery: `describe_type`, `find_implementations`, type-flow hints and
+  executable `how_to_get` plans. Large catalogs automatically use a compact
+  `invoke_method` dispatcher rather than overwhelming the client's tool list.
+- Bounded sync/async sequence pages and stream reads, structured errors and
+  machine-readable coverage/exclusions.
+
+Start with [`docs/handles.md`](docs/handles.md) for MCP client configuration,
+copyable examples, lifetime rules and configuration flags. See
+[implementation status](docs/implementation-status.md) for the limitations and
+verification evidence. **Trusted managed DLLs only; this is not a sandbox.**
+
+```sh
+./scripts/test.sh --offline   # Cached fallback: seven legacy calls + 539 assertions
+# Omit --offline on the first run to bootstrap the verified toolchain/sources.
+```
+
+The following architecture and adapter documentation describes **legacy mode**.
+Extended mode has its own engine under `Extended/`; legacy naming and schemas
+remain unchanged unless you opt in.
+
+## Legacy mode: why this exists
 
 `filename.dll` was never written with MCP in mind — its methods take and return
 plain CLR types (`Encoding`, `CultureInfo`, `StreamWriter`, `object`,
