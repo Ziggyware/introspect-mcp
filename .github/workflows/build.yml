@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+      DOTNET_INSTALL_DIR: /tmp/introspect-dotnet-sdk
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
