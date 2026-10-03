@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -18,7 +18,13 @@ public static class McpToolIntrospector
 {
     public static async Task<int> Main(string[] args)
     {
-        var dllPath = args.Length > 0 ? args[0] : throw new Exception("dll argument path missing");
+        if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
+        {
+            Console.Error.WriteLine(IntrospectMcp.Extended.ExtendedHost.Help);
+            return args.Length == 0 ? 2 : 0;
+        }
+        if (args.Contains("--extended")) return await IntrospectMcp.Extended.ExtendedHost.RunAsync(args);
+        var dllPath = args[0];
 
         RegisterDependencyResolution(dllPath);
         List<McpServerTool> tools;

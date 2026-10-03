@@ -1,0 +1,25 @@
+// .cs.in keeps this source out of the shipping project's default Compile glob.
+// The isolated build project explicitly includes it as C# source.
+using System.Globalization;
+using System.Text;
+
+public static class SmokeUtil
+{
+    public static int Add(int left, int right) => left + right;
+
+    public static string Echo(string value) => value;
+
+    public static async Task<int> AddAsync(int left, int right)
+    {
+        await Task.Yield();
+        return left + right;
+    }
+
+    public static string EncodingName(Encoding encoding) => encoding.WebName;
+
+    public static string CultureName(CultureInfo culture) => culture.Name;
+
+    public static Encoding MakeEncoding(string name) => Encoding.GetEncoding(name);
+
+    public static string Fail() => throw new InvalidOperationException("Expected smoke-test failure");
+}

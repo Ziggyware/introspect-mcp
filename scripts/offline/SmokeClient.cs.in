@@ -1,0 +1,65 @@
+// A real MCP SDK client communicating with the unmodified service over stdio.
+// This is a baseline build smoke test, not the extended handles acceptance suite.
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using System.Text.Json;
+
+if (args.Length != 3)
+    throw new ArgumentException("Expected dotnet executable, service DLL, fixture DLL");
+
+using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var transport = new StdioClientTransport(new()
+{
+    Command = args[0],
+    Arguments = [args[1], args[2]],
+    InheritEnvironmentVariables = false,
+});
+await using var client = await McpClient.CreateAsync(transport, cancellationToken: timeout.Token);
+var tools = await client.ListToolsAsync(cancellationToken: timeout.Token);
+
+var expectedTools = new[]
+{
+    "SmokeUtil_Add", "SmokeUtil_Echo", "SmokeUtil_AddAsync", "SmokeUtil_EncodingName",
+    "SmokeUtil_CultureName", "SmokeUtil_MakeEncoding", "SmokeUtil_Fail",
+};
+Assert(tools.Select(t => t.Name).ToHashSet().SetEquals(expectedTools),
+    "tools/list must expose all seven legacy *Util methods without renaming or omissions");
+
+var addSchema = tools.Single(t => t.Name == "SmokeUtil_Add").JsonSchema;
+Assert(addSchema.GetProperty("properties").GetProperty("left").GetProperty("type").GetString() == "integer",
+    "Add.left input schema must be integer");
+Assert(addSchema.GetProperty("required").EnumerateArray().Select(x => x.GetString()).ToHashSet().SetEquals(["left", "right"]),
+    "Add inputs must be required");
+var encodingSchema = tools.Single(t => t.Name == "SmokeUtil_EncodingName").JsonSchema;
+Assert(encodingSchema.GetProperty("properties").GetProperty("encoding").GetProperty("type").GetString() == "string",
+    "Encoding adapter must expose its legacy string schema");
+Console.WriteLine("PASS MCP initialize and tools/list (7 tools; scalar and adapter schemas checked)");
+
+foreach (var (name, arguments, expected) in new (string, Dictionary<string, object?>, string)[]
+{
+    ("SmokeUtil_Add", new() { ["left"] = 19, ["right"] = 23 }, "42"),
+    ("SmokeUtil_Echo", new() { ["value"] = "stdio works" }, "stdio works"),
+    ("SmokeUtil_AddAsync", new() { ["left"] = 39, ["right"] = 3 }, "42"),
+    ("SmokeUtil_EncodingName", new() { ["encoding"] = "utf-8" }, "utf-8"),
+    ("SmokeUtil_CultureName", new() { ["culture"] = "en-US" }, "en-US"),
+    ("SmokeUtil_MakeEncoding", new() { ["name"] = "utf-8" }, "utf-8"),
+})
+{
+    var result = await client.CallToolAsync(name, arguments, cancellationToken: timeout.Token);
+    var text = string.Join("", result.Content.OfType<TextContentBlock>().Select(x => x.Text));
+    Assert(result.IsError != true && text == expected,
+        $"{name}: expected '{expected}', got '{text}' (isError={result.IsError})");
+    Console.WriteLine($"PASS {name} -> {text}");
+}
+
+var failure = await client.CallToolAsync("SmokeUtil_Fail", cancellationToken: timeout.Token);
+Assert(failure.IsError == true, "Target exception must produce a structured MCP isError result");
+Assert(failure.Content.OfType<TextContentBlock>().Any(x => !string.IsNullOrWhiteSpace(x.Text)),
+    "Error result must include text content");
+Console.WriteLine("PASS SmokeUtil_Fail -> structured isError result");
+Console.WriteLine("PASS all 7 tools/call checks through the real MCP client");
+
+static void Assert(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
